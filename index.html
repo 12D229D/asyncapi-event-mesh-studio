@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AsyncAPI 3.0 Event Mesh Studio — Diseñador Visual EDA y Simulador Pub/Sub</title>
+  <meta name="description" content="Estudio visual de arquitecturas orientadas a eventos (EDA) con contratos AsyncAPI 3.0, simulador de brokers Kafka, MQTT y WebSockets, Schema Registry y persistencia SQLite.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20%2232%22><text y=%2226%22 font-size=%2224%22>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- Top Navigation & Branding -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="brand-titles">
+        <h1>AsyncAPI 3.0 Event Mesh Studio</h1>
+        <div class="brand-meta">
+          <span class="tag-version">v1.0.0</span>
+          <span>Arquitectura Asíncrona (EDA)</span>
+          <span>•</span>
+          <span id="headerProtocolTag" class="badge-protocol badge-kafka">Apache Kafka</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="architecture-selector">
+        <label for="selectArchitecture">Arquitectura:</label>
+        <select id="selectArchitecture" class="select-custom">
+          <option value="ecommerce-kafka">🛒 E-Commerce & Pagos (Kafka 3 Particiones)</option>
+          <option value="iot-fleet-mqtt">🚗 Telemetría Vehicular IoT (MQTT v5 QoS 1/2)</option>
+          <option value="realtime-chat-ws">💬 Chat Mesh Omnicanal (WebSockets Duplex)</option>
+          <option value="fintech-fraud-amqp">🛡️ Detección de Fraude Fintech (AMQP Topic)</option>
+        </select>
+      </div>
+
+      <button id="btnExportYaml" class="btn btn-secondary" title="Descargar contrato asyncapi.yaml">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        <span>Exportar YAML</span>
+      </button>
+
+      <button id="btnExportSql" class="btn btn-primary" title="Exportar volcado de base de datos SQLite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.58 4 8 4s8-1.79 8-4M4 7c0-2.21 3.58-4 8-4s8 1.79 8 4m0 5c0 2.21-3.58 4-8 4s-8-1.79-8-4"/>
+        </svg>
+        <span>Volcado SQLite (.sql)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Interactive Controls Bar -->
+  <section class="control-bar" aria-label="Controles del simulador">
+    <div class="sim-controls-group">
+      <button id="btnToggleSim" class="btn btn-emerald" aria-label="Pausar o reanudar simulación">
+        <svg id="iconSimState" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16"/>
+          <rect x="14" y="4" width="4" height="16"/>
+        </svg>
+        <span id="textSimState">Pausar</span>
+      </button>
+
+      <button id="btnStepSim" class="btn btn-secondary" title="Avanzar un paso discreto de mensajes">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5,4 15,12 5,20"/>
+          <rect x="16" y="4" width="3" height="16"/>
+        </svg>
+        <span>Paso</span>
+      </button>
+
+      <button id="btnResetMetrics" class="btn btn-secondary" title="Reiniciar contadores de mensajes y DLQ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+        <span>Reiniciar Métricas</span>
+      </button>
+    </div>
+
+    <!-- Sliders for Throughput, Error Rate and Consumer Lag -->
+    <div class="sim-controls-group">
+      <div class="slider-group">
+        <label for="sliderThroughput">Tráfico (msg/s):</label>
+        <input type="range" id="sliderThroughput" class="slider-custom" min="1" max="50" value="12">
+        <span id="valThroughput" class="slider-value">12</span>
+      </div>
+
+      <div class="slider-group">
+        <label for="sliderFailureRate">Tasa Fallos (%):</label>
+        <input type="range" id="sliderFailureRate" class="slider-custom" min="0" max="40" value="5">
+        <span id="valFailureRate" class="slider-value">5%</span>
+      </div>
+
+      <div class="slider-group">
+        <label for="sliderConsumerLag">Consumer Lag:</label>
+        <input type="range" id="sliderConsumerLag" class="slider-custom" min="0" max="60" value="10">
+        <span id="valConsumerLag" class="slider-value">10</span>
+      </div>
+    </div>
+
+    <div class="sim-controls-group">
+      <button id="btnOpenDispatchModal" class="btn btn-primary" title="Inyectar evento manual personalizado en el bus">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+        <span>Publicar Evento</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Navigation Tabs -->
+  <nav class="app-tabs" role="tablist">
+    <button class="tab-btn active" data-tab="tab-mesh" role="tab" id="tabbtn-mesh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span>Lienzo Topológico EDA</span>
+    </button>
+
+    <button class="tab-btn" data-tab="tab-editor" role="tab" id="tabbtn-editor">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="16 18 22 12 16 6"/>
+        <polyline points="8 6 2 12 8 18"/>
+      </svg>
+      <span>Editor AsyncAPI 3.0 & Linter</span>
+    </button>
+
+    <button class="tab-btn" data-tab="tab-schema" role="tab" id="tabbtn-schema">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span>Schema Registry & Compatibility Guard</span>
+    </button>
+
+    <button class="tab-btn" data-tab="tab-stream" role="tab" id="tabbtn-stream">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="8" y1="6" x2="21" y2="6"/>
+        <line x1="8" y1="12" x2="21" y2="12"/>
+        <line x1="8" y1="18" x2="21" y2="18"/>
+        <line x1="3" y1="6" x2="3.01" y2="6"/>
+        <line x1="3" y1="12" x2="3.01" y2="12"/>
+        <line x1="3" y1="18" x2="3.01" y2="18"/>
+      </svg>
+      <span>Trazabilidad de Eventos & Payloads</span>
+    </button>
+
+    <button class="tab-btn" data-tab="tab-database" role="tab" id="tabbtn-database">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+      </svg>
+      <span>Repositorio SQLite (D1)</span>
+    </button>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Live Telemetry HUD -->
+    <section class="metrics-hud" aria-label="Métricas en vivo del broker">
+      <div class="metric-card">
+        <div class="metric-info">
+          <span class="metric-label">Rendimiento (Throughput)</span>
+          <span id="hudThroughput" class="metric-value">12.0 msg/s</span>
+        </div>
+        <div class="metric-icon amber">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-info">
+          <span class="metric-label">Mensajes Procesados</span>
+          <span id="hudTotalMessages" class="metric-value">0</span>
+        </div>
+        <div class="metric-icon emerald">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-info">
+          <span class="metric-label">Consumer Lag Acumulado</span>
+          <span id="hudConsumerLag" class="metric-value">0 msg</span>
+        </div>
+        <div class="metric-icon cyan">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-info">
+          <span class="metric-label">Dead-Letter Queue (DLQ)</span>
+          <span id="hudDlqCount" class="metric-value">0</span>
+        </div>
+        <div class="metric-icon rose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 1: Visual Mesh & Topology Studio -->
+    <section id="tab-mesh" class="tab-content active" role="tabpanel">
+      <div class="mesh-studio-layout">
+        <!-- Interactive Canvas -->
+        <div class="canvas-container">
+          <div class="canvas-toolbar">
+            <button id="btnResetCanvasView" class="tool-btn" title="Centrar lienzo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+            </button>
+            <span style="font-size: 0.72rem; color: var(--text-muted); align-self: center; margin: 0 4px;">Zoom: Rueda | Arrastrar: Nodos/Fondo</span>
+          </div>
+
+          <canvas id="eventMeshCanvas"></canvas>
+
+          <div class="canvas-legend">
+            <div class="legend-item">
+              <span class="legend-dot" style="background: var(--accent-amber);"></span>
+              <span>Productor / Kafka</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background: var(--accent-emerald);"></span>
+              <span>Canal / MQTT</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background: var(--accent-cyan);"></span>
+              <span>Consumidor / WebSockets</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background: var(--accent-rose);"></span>
+              <span>DLQ / Cuarentena</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Node Inspector Panel -->
+        <aside class="topology-panel">
+          <div class="panel-title">
+            <span id="inspectorTitle">Inspector de Componente</span>
+            <span id="inspectorTypeBadge" class="status-badge status-ack">PRODUCER</span>
+          </div>
+
+          <div class="inspector-body">
+            <div class="property-group">
+              <span class="property-label">Identificador / Nombre</span>
+              <span id="inspNodeName" class="property-value">publishOrderCreated</span>
+            </div>
+
+            <div class="property-group">
+              <span class="property-label">Dirección / Binding del Protocolo</span>
+              <span id="inspNodeAddress" class="property-value">retail.orders.v1 (Partitions: 3)</span>
+            </div>
+
+            <div class="property-group">
+              <span class="property-label">Semántica de Entrega</span>
+              <span id="inspNodeSemantics" class="property-value">At-least-once (ACK Leader)</span>
+            </div>
+
+            <div class="property-group">
+              <span class="property-label">Nivel de Backpressure & Consumer Lag</span>
+              <div class="backpressure-gauge">
+                <div id="inspGaugeFill" class="backpressure-fill" style="width: 20%;"></div>
+              </div>
+              <span id="inspGaugeLabel" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Carga equilibrada (20%)</span>
+            </div>
+
+            <div class="property-group">
+              <span class="property-label">Contrato Asociado</span>
+              <pre id="inspSchemaSnippet" class="property-value" style="max-height: 140px; overflow: auto;">$ref: '#/components/messages/OrderCreated'</pre>
+            </div>
+
+            <button id="btnTriggerNodeEvent" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <span>Disparar Tráfico desde este Nodo</span>
+            </button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- Tab 2: AsyncAPI 3.0 Contract Editor & Linter -->
+    <section id="tab-editor" class="tab-content" role="tabpanel">
+      <div class="editor-layout">
+        <div class="editor-card">
+          <div class="editor-header">
+            <div class="editor-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              <span>Especificación AsyncAPI 3.0 Declarativa</span>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+              <button id="btnValidateEditor" class="btn btn-emerald" style="padding: 0.35rem 0.75rem; font-size: 0.76rem;">
+                <span>Validar y Aplicar al Lienzo</span>
+              </button>
+              <button id="btnCopyYaml" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.76rem;">
+                <span>Copiar</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="editor-textarea-wrap">
+            <textarea id="yamlEditorTextarea" class="editor-textarea" spellcheck="false"></textarea>
+          </div>
+        </div>
+
+        <!-- Editor Sidebar: Linter & Schema Tree -->
+        <div class="editor-sidebar">
+          <div class="linter-box">
+            <div class="linter-status-bar">
+              <span id="linterIndicator" class="status-indicator status-valid"></span>
+              <span id="linterStatusText">Contrato Válido (AsyncAPI 3.0.0)</span>
+            </div>
+            <ul id="linterIssuesList" class="lint-list">
+              <li class="lint-item">Estructura general conforme a especificación v3.0.0</li>
+              <li class="lint-item">Bindings específicos de protocolo reconocidos con éxito</li>
+            </ul>
+          </div>
+
+          <div class="structure-tree">
+            <h3 style="font-size: 0.85rem; font-weight: 700;">Árbol de Componentes AsyncAPI</h3>
+            <ul id="structureTreeList" class="tree-list">
+              <li class="tree-node"><span>servers:</span><span style="color: var(--accent-amber);">1 cluster</span></li>
+              <li class="tree-node"><span>channels:</span><span style="color: var(--accent-emerald);">2 tópicos</span></li>
+              <li class="tree-node"><span>operations:</span><span style="color: var(--accent-cyan);">4 op (send/recv)</span></li>
+              <li class="tree-node"><span>messages:</span><span style="color: var(--text-main);">3 esquemas</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: Schema Registry & Compatibility Guard -->
+    <section id="tab-schema" class="tab-content" role="tabpanel">
+      <div class="schema-guard-layout">
+        <div class="compatibility-audit-card">
+          <div class="audit-header">
+            <div>
+              <h2 style="font-size: 1.15rem; font-weight: 800;">Schema Registry & Compatibility Guard</h2>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                Detección automática de rupturas (*Breaking Changes*) en la evolución de contratos según el estándar Confluent/Avro.
+              </p>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <label for="selectCompatibilityMode" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Modo:</label>
+              <select id="selectCompatibilityMode" class="select-custom" style="background: var(--bg-surface); padding: 0.35rem 0.65rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                <option value="BACKWARD">BACKWARD (Consumidor nuevo lee datos viejos)</option>
+                <option value="FORWARD">FORWARD (Consumidor viejo lee datos nuevos)</option>
+                <option value="FULL">FULL (Bidireccional)</option>
+                <option value="NONE">NONE (Sin restricciones)</option>
+              </select>
+
+              <button id="btnRunAudit" class="btn btn-primary" style="padding: 0.45rem 1rem;">
+                <span>Auditar Compatibilidad</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1.25rem;">
+            <div id="auditVerdictBox" class="audit-verdict verdict-compatible">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span id="auditVerdictText">COMPATIBLE (Safe to Deploy)</span>
+            </div>
+            <p id="auditSummaryText" style="font-size: 0.82rem; margin-top: 0.5rem; color: var(--text-muted);"></p>
+          </div>
+
+          <ul id="diffResultsList" class="diff-results-list">
+            <!-- Dynamic Diff Items -->
+          </ul>
+        </div>
+
+        <!-- Schema V1 vs Schema V2 Editors -->
+        <div class="schema-diff-grid">
+          <div class="schema-box">
+            <div class="schema-box-header">
+              <h3 style="font-size: 0.88rem; font-weight: 700; color: var(--accent-amber);">Esquema Anterior (v1 — En Producción)</h3>
+              <span class="status-badge status-ack">VERSION 1</span>
+            </div>
+            <textarea id="schemaV1Editor" class="schema-editor" spellcheck="false"></textarea>
+          </div>
+
+          <div class="schema-box">
+            <div class="schema-box-header">
+              <h3 style="font-size: 0.88rem; font-weight: 700; color: var(--accent-cyan);">Nuevo Esquema Propuesto (v2 — En Evaluación)</h3>
+              <span class="status-badge status-retry">VERSION 2</span>
+            </div>
+            <textarea id="schemaV2Editor" class="schema-editor" spellcheck="false"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: Live Event Stream & Payload Inspector -->
+    <section id="tab-stream" class="tab-content" role="tabpanel">
+      <div class="stream-card">
+        <div class="stream-toolbar">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <h2 style="font-size: 0.95rem; font-weight: 700;">Trazas de Mensajes en Vivo (Pub/Sub Ledger)</h2>
+            <span id="streamCounterBadge" class="tag-version">0 eventos</span>
+          </div>
+
+          <div style="display: flex; gap: 0.65rem; align-items: center;">
+            <input type="text" id="streamSearchInput" class="search-input" placeholder="Filtrar por ID, key, o tópico...">
+            <button id="btnClearStream" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">
+              <span>Limpiar Registro</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="stream-table">
+            <thead>
+              <tr>
+                <th>ID Mensaje</th>
+                <th>Hora</th>
+                <th>Canal / Tópico</th>
+                <th>Partición / Key</th>
+                <th>Estado</th>
+                <th>Latencia</th>
+                <th>Payload Resumido</th>
+              </tr>
+            </thead>
+            <tbody id="streamTableBody">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 5: SQLite Database & Repository -->
+    <section id="tab-database" class="tab-content" role="tabpanel">
+      <div class="sql-grid">
+        <aside class="sql-sidebar">
+          <h3 style="font-size: 0.88rem; font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Tablas SQLite (schema.sql)</h3>
+          <div class="sql-table-item active" data-sqltable="async_contracts">
+            <span>async_contracts</span>
+            <span class="tag-version" id="countContracts">3</span>
+          </div>
+          <div class="sql-table-item" data-sqltable="event_schemas">
+            <span>event_schemas</span>
+            <span class="tag-version" id="countSchemas">2</span>
+          </div>
+          <div class="sql-table-item" data-sqltable="event_audit_log">
+            <span>event_audit_log</span>
+            <span class="tag-version" id="countAudit">0</span>
+          </div>
+          <div class="sql-table-item" data-sqltable="broker_metrics">
+            <span>broker_metrics</span>
+            <span class="tag-version" id="countMetrics">0</span>
+          </div>
+
+          <button id="btnResetDatabase" class="btn btn-secondary" style="margin-top: 1rem; width: 100%; font-size: 0.75rem;">
+            <span>Reiniciar Base de Datos Local</span>
+          </button>
+        </aside>
+
+        <div class="sql-content-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.65rem;">
+            <div>
+              <h3 id="currentSqlTableName" style="font-size: 0.95rem; font-weight: 700;">async_contracts</h3>
+              <p style="font-size: 0.75rem; color: var(--text-muted);">Registros relacionales persistidos en formato SQLite 3.45+.</p>
+            </div>
+            <button id="btnDownloadSqlFromTab" class="btn btn-primary" style="padding: 0.35rem 0.85rem; font-size: 0.76rem;">
+              <span>Exportar DDL y Datos (.sql)</span>
+            </button>
+          </div>
+
+          <pre id="sqlTableViewer" class="sql-code-block"></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Custom Event Dispatcher -->
+  <div id="modalDispatchEvent" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalDispatchTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalDispatchTitle" style="font-size: 1rem; font-weight: 700;">Inyectar Evento Asíncrono</h3>
+        <button id="btnCloseDispatchModal" class="tool-btn" aria-label="Cerrar modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="property-group">
+          <label for="inputMsgChannel" class="property-label">Canal / Tópico de Destino</label>
+          <input type="text" id="inputMsgChannel" class="search-input" style="width: 100%;" value="retail.orders.v1">
+        </div>
+
+        <div class="property-group">
+          <label for="inputMsgKey" class="property-label">Clave de Partición (Partition Key)</label>
+          <input type="text" id="inputMsgKey" class="search-input" style="width: 100%;" value="usr_9841">
+        </div>
+
+        <div class="property-group">
+          <label for="inputMsgPayload" class="property-label">Cuerpo del Evento (JSON Payload)</label>
+          <textarea id="inputMsgPayload" class="editor-textarea" style="min-height: 180px; height: 180px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.8rem;">{
+  "orderId": "550e8400-e29b-41d4-a716-446655440000",
+  "customerId": "cust_3819",
+  "amount": 149.99,
+  "currency": "USD",
+  "status": "PENDING"
+}</textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnCancelDispatch" class="btn btn-secondary">Cancelar</button>
+        <button id="btnConfirmDispatch" class="btn btn-primary">Publicar al Broker</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Event Payload Inspector -->
+  <div id="modalInspectPayload" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalInspectTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modalInspectTitle" style="font-size: 1rem; font-weight: 700;">Inspección de Mensaje</h3>
+        <button id="btnCloseInspectModal" class="tool-btn" aria-label="Cerrar modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="property-group">
+          <span class="property-label">Metadatos del Evento</span>
+          <pre id="inspectMetaContent" class="sql-code-block" style="max-height: 120px;"></pre>
+        </div>
+        <div class="property-group">
+          <span class="property-label">Payload Completo (JSON Deserializado)</span>
+          <pre id="inspectPayloadContent" class="sql-code-block" style="max-height: 260px;"></pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCloseInspectBtn" class="btn btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div>
+      <strong>AsyncAPI 3.0 Event Mesh Studio</strong> — Diseñador Visual de EDA, Kafka & MQTT.
+    </div>
+    <div class="footer-links">
+      <span>Contratos AsyncAPI 3.0.0</span>
+      <span>•</span>
+      <span>Confluent Schema Registry</span>
+      <span>•</span>
+      <span>SQLite 3.45+ (D1)</span>
+      <span>•</span>
+      <a href="https://github.com/12D229D" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub 12D229D</a>
+    </div>
+  </footer>
+
+  <!-- Core Scripts -->
+  <script src="js/asyncapi-engine.js"></script>
+  <script src="js/broker-simulator.js"></script>
+  <script src="js/schema-compatibility.js"></script>
+  <script src="js/db-sqlite.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
